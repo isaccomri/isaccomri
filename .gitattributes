@@ -1,0 +1,4 @@
+* text=auto
+# These files have pinned provenance hashes; preserve the vendor bytes.
+fitig-seo-spider/assets/third-party/** -text
+fitig-seo-spider/engine/data/** -text
