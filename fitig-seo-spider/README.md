@@ -1,12 +1,12 @@
 # FITIG SEO Spider
 
-Independent Windows SEO crawl workbench using Rust, Tauri 2, React, TypeScript and SQLite. Source baseline: **0.1.45**.
+Independent Windows SEO crawl workbench using Rust, Tauri 2, React, TypeScript and SQLite. Source baseline: **0.1.46**.
 
 ## Status
 
-186 of 206 tracked entries (90.3%) have partial implementation/test evidence. This measures matrix coverage, **not full Screaming Frog parity**. See [feature matrix](docs/feature-parity-matrix.md) and [scope and limitations](docs/milestone-90-coverage.md). This repository snapshot does not include private crawl data, credentials, installed competitor files, acceptance recordings or local build logs.
+188 of 206 tracked entries (91.3%) have partial implementation/test evidence. This measures matrix coverage, **not full Screaming Frog parity**. See [feature matrix](docs/feature-parity-matrix.md) and [scope and limitations](docs/milestone-90-coverage.md). This repository snapshot does not include private crawl data, credentials, installed competitor files, acceptance recordings or local build logs.
 
-The local 0.1.45 release was checked with 311 automated tests and 608 installed native assertions across 27 suites. These historical results are recorded in the release notes; they are not claims that all these checks run in CI. Integrations requiring accounts, complete Hebrew translation, form login, AI/semantic services and signed packaging remain incomplete. Local security policies and antivirus exclusions are not required build steps.
+The local 0.1.46 release was checked with 315 automated tests and 60 installed native assertions across 3 targeted suites. These historical results are recorded in the release notes; they are not claims that all these checks run in CI. Integrations requiring accounts, complete Hebrew translation, form login, AI/semantic services and signed packaging remain incomplete. Local security policies and antivirus exclusions are not required build steps.
 
 ## Build on Windows 11
 
@@ -31,4 +31,6 @@ Development: `npm run dev` (UI on port 1420). Crawls are user-owned SQLite files
 
 This is an independent implementation. No proprietary competitor code, artwork, branding or licensing mechanism is distributed. No open-source license grant for original FITIG code has been selected; all rights are reserved. Third-party assets retain their own licenses and notices under `assets/third-party` (axe-core MPL-2.0; AMP validator Apache-2.0). Rust/npm dependencies retain their respective licenses.
 
-Repository preparation changes the dev server port to match Tauri (1420), pins Vitest 5.0.5, and preserves vendor bytes with Git attributes. The updated test runner passed the same 94 UI tests; npm audit reported zero known vulnerabilities at publication. These changes are not a new installed-app release.
+## Release 0.1.46
+
+See [release evidence and limits](docs/release-0.1.46.md). Adds complete received-payload SHA-256, exact response duplicate grouping/filtering and byte-only crawl comparison while retaining unknown legacy/truncated observations. Fixes global nonzero request pacing after robots/connection waits; slow response headers can conservatively reduce concurrency. The 0.1.45 baseline separately had 608 native checks, which were not all rerun or combined into a new full certification. GitHub CI status is reported by the PR checks.

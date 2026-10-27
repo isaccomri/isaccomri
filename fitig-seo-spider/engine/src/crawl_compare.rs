@@ -11,7 +11,7 @@ fn summaries(pages:&[Page])->BTreeMap<String,BTreeMap<String,Value>>{
  for page in pages{for link in page.links.iter().filter(|link|link.kind=="anchor"){incoming.entry(&link.url).or_default().insert(&page.url);}}
  pages.iter().map(|page|{
   let mut values=BTreeMap::new();macro_rules! field{($($name:ident),*)=>{$(values.insert(stringify!($name).into(),json!(page.$name));)*}}
-  field!(status,content_type,title,description,canonical,directives,word_count,content_hash,depth,redirect,charset,rendered_url,error,headings,internal);
+  field!(status,content_type,title,description,canonical,directives,word_count,content_hash,response_hash,depth,redirect,charset,rendered_url,error,headings,internal);
   values.insert("hreflang".into(),sorted(&page.hreflang));values.insert("links".into(),sorted(&page.links));values.insert("images".into(),sorted(&page.images));values.insert("json_ld".into(),sorted(&page.json_ld));values.insert("issues".into(),sorted(&page.issues));values.insert("custom".into(),sorted(&page.custom));
   values.insert("unique_inlinks".into(),json!(incoming.get(page.url.as_str()).map_or(0,|links|links.len())));
   values.insert("unique_outlinks".into(),json!(page.links.iter().filter(|link|link.kind=="anchor").map(|link|&link.url).collect::<BTreeSet<_>>().len()));
@@ -21,7 +21,7 @@ fn summaries(pages:&[Page])->BTreeMap<String,BTreeMap<String,Value>>{
 pub fn analyze(current:&[Page],baseline:&[Page])->Vec<Row>{
  let current=summaries(current);let baseline=summaries(baseline);let urls:BTreeSet<_>=current.keys().chain(baseline.keys()).cloned().collect();
  urls.into_iter().map(|url|{
-  let before=baseline.get(&url);let after=current.get(&url);let fields=match(before,after){(Some(a),Some(b))=>a.keys().filter(|key|a.get(*key)!=b.get(*key)).cloned().collect::<Vec<_>>(),_=>Vec::new()};
+  let before=baseline.get(&url);let after=current.get(&url);let fields=match(before,after){(Some(a),Some(b))=>a.keys().filter(|key|a.get(*key)!=b.get(*key)&&(*key!="response_hash"||a.get(*key).is_some_and(Value::is_string)&&b.get(*key).is_some_and(Value::is_string))).cloned().collect::<Vec<_>>(),_=>Vec::new()};
   let change=match(before,after){(None,Some(_))=>"Added",(Some(_),None)=>"Removed",_ if !fields.is_empty()=>"Changed",_=>"Unchanged"}.to_string();
   Row{url,change,fields,baseline:before.cloned(),current:after.cloned()}
  }).collect()
@@ -45,5 +45,16 @@ pub fn projects(current:&str,baseline:&str)->Result<Report>{
   let dir=std::env::temp_dir().join(format!("fitig-compare-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));std::fs::create_dir(&dir).unwrap();let current=dir.join("current.sqlite");let baseline=dir.join("baseline.sqlite");
   for(path,title)in[(&current,"חדש"),(&baseline,"ישן")]{let c=crate::open(path.to_str().unwrap()).unwrap();c.execute("INSERT INTO metadata VALUES('seed','https://e.test/')",[]).unwrap();let p=page("page",title);c.execute("INSERT INTO pages VALUES(?1,?2)",rusqlite::params![p.url,serde_json::to_string(&p).unwrap()]).unwrap();}
   let before=std::fs::read(&baseline).unwrap();let report=projects(current.to_str().unwrap(),baseline.to_str().unwrap()).unwrap();assert_eq!(report.counts["Changed"],1);assert_eq!(report.current_seed,"https://e.test/");assert!(std::fs::read(&baseline).unwrap()==before);std::fs::remove_dir_all(dir).unwrap();
+ }
+}
+
+#[cfg(test)]mod response_hash_comparison_tests{
+ use super::*;
+ #[test]fn compare_only_two_observed_payloads(){
+  let old=Page{url:"https://example.test/".into(),..Default::default()};
+  let mut new=old.clone();new.response_hash=Some("abc".into());
+  assert_eq!(analyze(&[new.clone()],&[old.clone()])[0].change,"Unchanged");
+  let mut known=old;known.response_hash=Some("def".into());
+  assert_eq!(analyze(&[new],&[known])[0].fields,vec!["response_hash"]);
  }
 }

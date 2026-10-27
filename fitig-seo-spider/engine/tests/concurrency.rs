@@ -49,7 +49,7 @@ fn options(site:&Site,project:&Project,limit:usize)->CrawlOptions{CrawlOptions{u
 }
 #[test]fn global_dispatch_delay_is_not_multiplied_by_worker_count(){
  let site=Site::new(|_|(90,"<title>Paced</title>".into()));let project=Project::new();let mut opts=options(&site,&project,0);opts.delay_ms=50;
- fitig_engine::crawl_configured(opts,Some((0..5).map(|i|format!("{}/p{i}",site.origin)).collect()),CrawlProfile::default(),|_|{}).unwrap();let starts=site.pages();assert_eq!(starts.len(),5);for pair in starts.windows(2){assert!(pair[1].1.duration_since(pair[0].1)>=Duration::from_millis(40));}assert!(site.peak.load(Ordering::SeqCst)<=5);
+ fitig_engine::crawl_configured(opts,Some((0..5).map(|i|format!("{}/p{i}",site.origin)).collect()),CrawlProfile::default(),|_|{}).unwrap();let starts=site.pages();assert_eq!(starts.len(),5);for pair in starts.windows(2){assert!(pair[1].1.duration_since(pair[0].1)>=Duration::from_millis(40),"Observed server gap {:?}: {} -> {}",pair[1].1.duration_since(pair[0].1),pair[0].0,pair[1].0);}assert!(site.peak.load(Ordering::SeqCst)<=5);
 }
 #[test]fn invalid_concurrency_does_not_create_project(){let site=Site::new(|_|panic!("No HTTP expected"));for n in [0,33]{let project=Project::new();assert!(fitig_engine::crawl_configured(options(&site,&project,0),None,CrawlProfile{concurrency:n,..Default::default()},|_|{}).is_err());assert!(!std::path::Path::new(&project.db()).exists());}assert!(site.starts.lock().unwrap().is_empty());}
 #[test]fn killed_owned_cli_recovers_durable_inflight_frontier(){
@@ -66,4 +66,15 @@ fn options(site:&Site,project:&Project,limit:usize)->CrawlOptions{CrawlOptions{u
   let pages=fitig_engine::crawl(options(&site,&project,1),|_|{}).unwrap();assert_eq!(attempts.load(Ordering::SeqCst),3);assert_eq!(pages.len(),1);
   if failures==2{assert_eq!(pages[0].status,200);assert_eq!(pages[0].title,"Recovered reset")}else{assert_eq!(pages[0].status,0);assert!(pages[0].issues.iter().any(|issue|issue=="Request failed"));}
  }
+}
+#[test]fn received_response_hash_persists_exact_bytes_not_normalized_content(){
+ use sha2::{Digest,Sha256};
+ let body="<body><main>שלום עולם</main><!-- exact bytes --></body>";
+ let site=Site::new(move|path|(0,if path=="/"{format!("<a href='/a'>a</a><a href='/b'>b</a><a href='/c'>c</a>")}else if path=="/c"{body.replace("exact bytes","different comment")}else{body.into()}));
+ let project=Project::new();let pages=fitig_engine::crawl_configured(options(&site,&project,0),None,CrawlProfile::default(),|_|{}).unwrap();
+ let a=pages.iter().find(|p|p.url.ends_with("/a")).unwrap();let b=pages.iter().find(|p|p.url.ends_with("/b")).unwrap();let c=pages.iter().find(|p|p.url.ends_with("/c")).unwrap();
+ assert_eq!(a.response_hash,Some(format!("{:x}",Sha256::digest(body.as_bytes()))));assert_eq!(a.response_hash,b.response_hash);assert_ne!(a.response_hash,c.response_hash);assert_eq!(a.content_hash,c.content_hash);
+ let before=std::fs::read(project.db()).unwrap();let saved=fitig_engine::load_pages(&project.db()).unwrap();assert_eq!(saved.iter().find(|p|p.url==a.url).unwrap().response_hash,a.response_hash);assert_eq!(std::fs::read(project.db()).unwrap(),before);
+ let report=fitig_engine::analyze(&project.db()).unwrap();let groups=report["duplicate_response_bodies"].as_object().unwrap();assert_eq!(groups.len(),1);assert_eq!(groups.values().next().unwrap().as_array().unwrap().len(),2);
+
 }

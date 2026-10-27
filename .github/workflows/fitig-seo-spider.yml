@@ -1,6 +1,7 @@
 name: FITIG Windows build
 on:
   push:
+    branches: [main]
     paths: ['fitig-seo-spider/**', '.github/workflows/fitig-seo-spider.yml']
   pull_request:
     paths: ['fitig-seo-spider/**', '.github/workflows/fitig-seo-spider.yml']
@@ -38,6 +39,9 @@ jobs:
         run: |
           npm exec -- tauri build --bundles nsis --ci
           if ($LASTEXITCODE) { throw 'Installer build failed' }
+          $env:PATH="$PWD/src-tauri/target/release;$env:PATH"
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE) { throw 'Desktop unit tests failed' }
           cargo build --locked --release --manifest-path engine/Cargo.toml
           if ($LASTEXITCODE) { throw 'CLI build failed' }
       - name: Upload unsigned build artifacts

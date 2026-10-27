@@ -40,3 +40,10 @@ it('duplicate filtering reads a ten-thousand-row inventory within a linear acces
 
 
 it('keeps discovered subdomains out of External using the recorded namespace and origin boundaries',()=>{const pages=[{url:'https://www.example.co.il/',internal:true,subdomain_root:'example.co.il',links:[{url:'https://shop.example.co.il/',kind:'anchor',internal:true},{url:'https://badexample.co.il/',kind:'anchor',internal:false},{url:'http://shop.example.co.il/',kind:'anchor',internal:false}],images:[['https://cdn.example.co.il/logo.png','תמונה']] as [string,string][]}];expect(selectPages(pages,'External','All','').map(page=>page.url)).toEqual(['https://badexample.co.il/','http://shop.example.co.il/']);});
+
+it('keeps exact response duplicates separate from normalized content and missing observations',()=>{
+ const pages=[{url:'https://e.test/a',content_type:'text/html',content_hash:'normalized',response_hash:'raw-a'},{url:'https://e.test/b',content_type:'text/html',content_hash:'normalized',response_hash:'raw-a'},{url:'https://e.test/c',content_type:'text/html',content_hash:'normalized',response_hash:'raw-b'},{url:'https://e.test/legacy',content_type:'text/html'}];
+ expect(selectPages(pages,'Content','Duplicate response body','').map(p=>p.url)).toEqual(['https://e.test/a','https://e.test/b']);
+ expect(selectPages(pages,'Content','Duplicate','')).toHaveLength(3);
+ expect(columnsFor('Content')).toContain('response_hash');
+});
